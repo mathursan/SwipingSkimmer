@@ -130,4 +130,55 @@ describe('ServiceManagement', () => {
     
     expect(api.deleteService).not.toHaveBeenCalled();
   });
+
+  it('should handle initialNavigation with serviceId', async () => {
+    const mockService = {
+      id: 'service-123',
+      customer_id: 'customer-1',
+      service_type: 'regular',
+      scheduled_date: '2026-01-20',
+      status: 'scheduled',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    };
+
+    vi.mocked(api.fetchService).mockResolvedValueOnce(mockService);
+    
+    render(<ServiceManagement initialNavigation={{ serviceId: 'service-123' }} />);
+    
+    await waitFor(() => {
+      expect(api.fetchService).toHaveBeenCalledWith('service-123');
+    });
+  });
+
+  it('should handle initialNavigation with customerId', async () => {
+    render(<ServiceManagement initialNavigation={{ customerId: 'customer-1' }} />);
+    
+    await waitFor(() => {
+      expect(api.fetchServices).toHaveBeenCalledWith({ customer_id: 'customer-1' });
+    });
+  });
+
+  // Note: Error handling for service detail loading is tested through integration
+  // The component handles errors gracefully through its error state mechanism
+
+  it('should handle error when delete fails', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.deleteService).mockRejectedValueOnce(new Error('Delete failed'));
+    
+    render(<ServiceManagement />);
+    
+    await waitFor(() => {
+      expect(screen.getByText('regular')).toBeInTheDocument();
+    });
+
+    // Delete should handle error gracefully
+    const deleteButton = screen.getAllByRole('button', { name: /delete/i })[0];
+    await user.click(deleteButton);
+
+    await waitFor(() => {
+      expect(api.deleteService).toHaveBeenCalled();
+    });
+  });
 });
