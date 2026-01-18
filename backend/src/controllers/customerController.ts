@@ -98,7 +98,16 @@ export class CustomerController {
   async getServiceHistory(req: Request, res: Response): Promise<void> {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-      const history = await customerRepo.getServiceHistory(id);
+      
+      // Check if customer exists
+      const customer = await customerRepo.findById(id);
+      if (!customer) {
+        res.status(404).json({ error: 'Customer not found' });
+        return;
+      }
+      
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const history = await customerRepo.getServiceHistory(id, limit);
       res.json(history);
     } catch (error) {
       console.error('Error getting service history:', error);

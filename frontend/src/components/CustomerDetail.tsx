@@ -8,6 +8,8 @@ interface CustomerDetailProps {
   onEdit: () => void;
   onDelete: () => void;
   onBack: () => void;
+  onViewService?: (serviceId: string) => void;
+  onViewAllServices?: (customerId: string) => void;
 }
 
 const CustomerDetail: React.FC<CustomerDetailProps> = ({
@@ -15,9 +17,12 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
   onEdit,
   onDelete,
   onBack,
+  onViewService,
+  onViewAllServices,
 }) => {
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const DISPLAY_LIMIT = 10; // Show last 10 services
 
   useEffect(() => {
     loadHistory();
@@ -27,12 +32,29 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
     setLoadingHistory(true);
     try {
       const data = await fetchCustomerHistory(customer.id);
-      setHistory(data);
+      // Limit to last 10 services for display
+      setHistory(data.slice(0, DISPLAY_LIMIT));
     } catch (err) {
       console.error('Failed to load history:', err);
     } finally {
       setLoadingHistory(false);
     }
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'scheduled': return 'badge-info';
+      case 'in_progress': return 'badge-warning';
+      case 'completed': return 'badge-success';
+      case 'skipped': return 'badge-danger';
+      default: return 'badge-secondary';
+    }
+  };
+
+  const truncateNotes = (notes: string | undefined, maxLength: number = 50) => {
+    if (!notes) return '-';
+    if (notes.length <= maxLength) return notes;
+    return notes.substring(0, maxLength) + '...';
   };
 
   return (
@@ -103,32 +125,64 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
         )}
 
         <div className="detail-section">
-          <h3>Service History</h3>
+          <div className="service-history-header">
+            <h3>Service History</h3>
+            {onViewAllServices && (
+              <button
+                onClick={() => onViewAllServices(customer.id)}
+                className="btn btn-link"
+              >
+                View All Services
+              </button>
+            )}
+          </div>
           {loadingHistory ? (
-            <div>Loading history...</div>
+            <div className="loading-message">Loading history...</div>
           ) : history.length === 0 ? (
-            <div>No service history available</div>
+            <div className="empty-message">No service history available</div>
           ) : (
-            <table className="history-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>Technician</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((item) => (
-                  <tr key={item.id}>
-                    <td>{new Date(item.scheduled_date).toLocaleDateString()}</td>
-                    <td>{item.service_type}</td>
-                    <td>{item.status}</td>
-                    <td>{item.technician_name || '-'}</td>
+            <>
+              <table className="history-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Notes</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {history.map((item) => (
+                    <tr
+                      key={item.id}
+                      className={onViewService ? 'clickable-row' : ''}
+                      onClick={() => onViewService && onViewService(item.id)}
+                    >
+                      <td>{new Date(item.scheduled_date).toLocaleDateString()}</td>
+                      <td>{item.service_type}</td>
+                      <td>
+                        <span className={`status-badge ${getStatusBadgeClass(item.status)}`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="notes-cell" title={item.service_notes || ''}>
+                        {truncateNotes(item.service_notes)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {onViewAllServices && (
+                <div className="view-all-link">
+                  <button
+                    onClick={() => onViewAllServices(customer.id)}
+                    className="btn btn-link"
+                  >
+                    View All Services →
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

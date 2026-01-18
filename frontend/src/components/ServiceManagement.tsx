@@ -7,7 +7,11 @@ import { fetchServices, fetchService, deleteService } from '../services/api';
 import { fetchCustomers } from '../services/api';
 import './ServiceManagement.css';
 
-const ServiceManagement: React.FC = () => {
+interface ServiceManagementProps {
+  initialNavigation?: { serviceId?: string; customerId?: string } | null;
+}
+
+const ServiceManagement: React.FC<ServiceManagementProps> = ({ initialNavigation }) => {
   const [services, setServices] = useState<Service[]>([]);
   const [customers, setCustomers] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -46,6 +50,24 @@ const ServiceManagement: React.FC = () => {
   useEffect(() => {
     loadServices();
   }, [loadServices]);
+
+  // Handle navigation from customer detail view
+  useEffect(() => {
+    if (initialNavigation?.serviceId) {
+      // Load and show specific service
+      fetchService(initialNavigation.serviceId)
+        .then((service) => {
+          setSelectedService(service);
+          setShowForm(false);
+        })
+        .catch((err) => {
+          console.error('Failed to load service:', err);
+        });
+    } else if (initialNavigation?.customerId) {
+      // Filter services by customer
+      setFilters({ customer_id: initialNavigation.customerId });
+    }
+  }, [initialNavigation]);
 
   const handleFilter = (newFilters: ServiceFilters) => {
     setFilters((prevFilters) => ({ ...prevFilters, ...newFilters }));
