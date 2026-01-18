@@ -8,6 +8,7 @@ async function runMigrations() {
     const migrations = [
       '001_create_customers_table.sql',
       '002_create_services_table.sql',
+      '003_create_recurring_services_table.sql',
     ];
 
     for (const migration of migrations) {
