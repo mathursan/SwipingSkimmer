@@ -126,19 +126,22 @@ export class CustomerRepository {
     return result.rowCount !== null && result.rowCount > 0;
   }
 
-  async getServiceHistory(customerId: string): Promise<any[]> {
-    const result = await pool.query(
-      `SELECT 
-        s.*,
-        u.name as technician_name,
-        cr.chlorine, cr.ph, cr.alkalinity, cr.calcium_hardness, cr.cyanuric_acid, cr.temperature, cr.lsi
+  async getServiceHistory(customerId: string, limit?: number): Promise<any[]> {
+    let query = `
+      SELECT 
+        s.*
       FROM services s
-      LEFT JOIN users u ON s.technician_id = u.id
-      LEFT JOIN chemical_readings cr ON cr.service_id = s.id
       WHERE s.customer_id = $1
-      ORDER BY s.scheduled_date DESC, s.created_at DESC`,
-      [customerId]
-    );
+      ORDER BY s.scheduled_date DESC, s.created_at DESC
+    `;
+    const params: any[] = [customerId];
+    
+    if (limit) {
+      query += ` LIMIT $2`;
+      params.push(limit);
+    }
+    
+    const result = await pool.query(query, params);
     return result.rows;
   }
 

@@ -201,31 +201,130 @@ describe('Customer API Integration Tests', () => {
   });
 
   describe('GET /api/customers/:id/history', () => {
-    it('should return service history (empty array if no services or table missing)', async () => {
-      if (!testCustomerId) {
-        const createResponse = await request(app)
-          .post('/api/customers')
-          .send({
-            name: 'History Test Customer',
-            address: '555 History St',
-          })
-          .expect(201);
-        testCustomerId = createResponse.body.id;
-      }
+    let historyTestCustomerId: string;
+    let testServiceIds: string[] = [];
 
-      // Note: This will fail if services table doesn't exist yet
-      // That's expected - service history will work once services are implemented
+    beforeAll(async () => {
+      // Create a test customer for history tests
+      const createResponse = await request(app)
+        .post('/api/customers')
+        .send({
+          name: 'History Test Customer',
+          address: '555 History St',
+        })
+        .expect(201);
+      historyTestCustomerId = createResponse.body.id;
+
+      // Create test services for this customer
+      const service1 = await request(app)
+        .post('/api/services')
+        .send({
+          customer_id: historyTestCustomerId,
+          service_type: 'regular',
+          scheduled_date: '2026-01-20',
+          status: 'completed',
+          service_notes: 'Pool cleaned and chemicals balanced',
+        })
+        .expect(201);
+      testServiceIds.push(service1.body.id);
+
+      const service2 = await request(app)
+        .post('/api/services')
+        .send({
+          customer_id: historyTestCustomerId,
+          service_type: 'repair',
+          scheduled_date: '2026-01-15',
+          status: 'completed',
+          service_notes: 'Fixed pump issue',
+        })
+        .expect(201);
+      testServiceIds.push(service2.body.id);
+
+      const service3 = await request(app)
+        .post('/api/services')
+        .send({
+          customer_id: historyTestCustomerId,
+          service_type: 'regular',
+          scheduled_date: '2026-01-10',
+          status: 'scheduled',
+        })
+        .expect(201);
+      testServiceIds.push(service3.body.id);
+    });
+
+    afterAll(async () => {
+      // Clean up test services
+      for (const serviceId of testServiceIds) {
+        await request(app)
+          .delete(`/api/services/${serviceId}`)
+          .catch(() => {});
+      }
+      if (historyTestCustomerId) {
+        await pool.query('DELETE FROM customers WHERE id = $1', [historyTestCustomerId]).catch(() => {});
+      }
+    });
+
+    it('should return service history for customer', async () => {
       const response = await request(app)
-        .get(`/api/customers/${testCustomerId}/history`);
+        .get(`/api/customers/${historyTestCustomerId}/history`)
+        .expect(200);
 
-      // Accept either 200 (if table exists) or 500 (if table doesn't exist yet)
-      if (response.status === 500) {
-        expect(response.body).toHaveProperty('error');
-        // This is expected until services table is created
-      } else {
-        expect(response.status).toBe(200);
-        expect(Array.isArray(response.body)).toBe(true);
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body.length).toBeGreaterThanOrEqual(3);
+      
+      // Verify services belong to the customer
+      response.body.forEach((service: any) => {
+        expect(service.customer_id).toBe(historyTestCustomerId);
+      });
+    });
+
+    it('should return services sorted by date (newest first)', async () => {
+      const response = await request(app)
+        .get(`/api/customers/${historyTestCustomerId}/history`)
+        .expect(200);
+
+      expect(response.body.length).toBeGreaterThanOrEqual(3);
+      
+      // Check that dates are in descending order
+      for (let i = 0; i < response.body.length - 1; i++) {
+        const currentDate = new Date(response.body[i].scheduled_date);
+        const nextDate = new Date(response.body[i + 1].scheduled_date);
+        expect(currentDate.getTime()).toBeGreaterThanOrEqual(nextDate.getTime());
       }
+    });
+
+    it('should return empty array when customer has no services', async () => {
+      // Create a customer with no services
+      const createResponse = await request(app)
+        .post('/api/customers')
+        .send({
+          name: 'No Services Customer',
+          address: '999 No Services St',
+        })
+        .expect(201);
+      const noServicesCustomerId = createResponse.body.id;
+
+      const response = await request(app)
+        .get(`/api/customers/${noServicesCustomerId}/history`)
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body.length).toBe(0);
+
+      // Clean up
+      await request(app)
+        .delete(`/api/customers/${noServicesCustomerId}`)
+        .expect(204);
+    });
+
+    it('should return 404 when customer does not exist', async () => {
+      const nonExistentId = randomUUID();
+      const response = await request(app)
+        .get(`/api/customers/${nonExistentId}/history`)
+        .expect(404);
+
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error).toBe('Customer not found');
     });
   });
 });

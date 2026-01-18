@@ -79,3 +79,73 @@
 .history-table tbody tr:hover {
   background-color: #f8f9fa;
 }
+
+.service-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.service-history-header h3 {
+  margin: 0;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 14px;
+  padding: 0;
+}
+
+.btn-link:hover {
+  color: #0056b3;
+}
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background-color: #e9ecef !important;
+}
+
+.notes-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  font-weight: 600;
+  color: white;
+  text-transform: capitalize;
+}
+
+.badge-info { background-color: #007bff; } /* Scheduled */
+.badge-warning { background-color: #ffc107; color: #333; } /* In Progress */
+.badge-success { background-color: #28a745; } /* Completed */
+.badge-danger { background-color: #dc3545; } /* Skipped */
+.badge-secondary { background-color: #6c757d; } /* Default/Unknown */
+
+.loading-message,
+.empty-message {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+
+.view-all-link {
+  text-align: center;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #dee2e6;
+}

@@ -85,6 +85,18 @@ const CustomerManagement: React.FC = () => {
     setEditingCustomer(null);
   };
 
+  const handleViewService = (serviceId: string) => {
+    // Navigate to services tab and show service detail
+    // This will be handled by the parent App component
+    // For now, we'll dispatch a custom event that App can listen to
+    window.dispatchEvent(new CustomEvent('navigate-to-service', { detail: { serviceId } }));
+  };
+
+  const handleViewAllServices = (customerId: string) => {
+    // Navigate to services tab with customer filter
+    window.dispatchEvent(new CustomEvent('navigate-to-services', { detail: { customerId } }));
+  };
+
   return (
     <div className="customer-management">
       <div className="customer-management-header">
@@ -108,6 +120,8 @@ const CustomerManagement: React.FC = () => {
           onEdit={() => handleEdit(selectedCustomer)}
           onDelete={() => handleDelete(selectedCustomer.id)}
           onBack={handleBack}
+          onViewService={handleViewService}
+          onViewAllServices={handleViewAllServices}
         />
       ) : (
         <CustomerList
