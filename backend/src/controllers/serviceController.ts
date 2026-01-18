@@ -129,6 +129,58 @@ export class ServiceController {
       res.status(500).json({ error: 'Failed to delete service' });
     }
   }
+
+  async complete(req: Request, res: Response): Promise<void> {
+    try {
+      const id = req.params.id as string;
+      const service = await serviceRepo.markComplete(id);
+
+      if (!service) {
+        res.status(404).json({ error: 'Service not found' });
+        return;
+      }
+
+      res.json(service);
+    } catch (error) {
+      console.error('Error completing service:', error);
+      res.status(500).json({ error: 'Failed to complete service' });
+    }
+  }
+
+  async skip(req: Request, res: Response): Promise<void> {
+    try {
+      const id = req.params.id as string;
+      const reason = req.body?.reason as string | undefined;
+      const service = await serviceRepo.markSkipped(id, reason);
+
+      if (!service) {
+        res.status(404).json({ error: 'Service not found' });
+        return;
+      }
+
+      res.json(service);
+    } catch (error) {
+      console.error('Error skipping service:', error);
+      res.status(500).json({ error: 'Failed to skip service' });
+    }
+  }
+
+  async start(req: Request, res: Response): Promise<void> {
+    try {
+      const id = req.params.id as string;
+      const service = await serviceRepo.markInProgress(id);
+
+      if (!service) {
+        res.status(404).json({ error: 'Service not found' });
+        return;
+      }
+
+      res.json(service);
+    } catch (error) {
+      console.error('Error starting service:', error);
+      res.status(500).json({ error: 'Failed to start service' });
+    }
+  }
 }
 
 export const serviceController = new ServiceController();

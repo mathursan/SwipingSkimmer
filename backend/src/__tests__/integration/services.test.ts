@@ -389,4 +389,155 @@ describe('Service API Integration Tests', () => {
       expect(response.body.error).toBe('Service not found');
     });
   });
+
+  describe('POST /api/services/:id/complete', () => {
+    let completeServiceId: string;
+
+    beforeEach(async () => {
+      // Create a service to complete
+      const result = await pool.query(
+        `INSERT INTO services (id, customer_id, service_type, scheduled_date, status)
+         VALUES ($1, $2, 'regular', '2026-01-25', 'scheduled')
+         RETURNING id`,
+        [randomUUID(), testCustomerId]
+      );
+      completeServiceId = result.rows[0].id;
+    });
+
+    afterEach(async () => {
+      if (completeServiceId) {
+        await pool.query('DELETE FROM services WHERE id = $1', [completeServiceId]).catch(() => {});
+      }
+    });
+
+    it('should mark service as completed and set completed_at timestamp', async () => {
+      const response = await request(app)
+        .post(`/api/services/${completeServiceId}/complete`)
+        .expect(200);
+
+      expect(response.body.status).toBe('completed');
+      expect(response.body.completed_at).toBeDefined();
+      expect(new Date(response.body.completed_at)).toBeInstanceOf(Date);
+
+      // Verify in database
+      const dbResult = await pool.query(
+        'SELECT status, completed_at FROM services WHERE id = $1',
+        [completeServiceId]
+      );
+      expect(dbResult.rows[0].status).toBe('completed');
+      expect(dbResult.rows[0].completed_at).toBeDefined();
+    });
+
+    it('should return 404 when service not found', async () => {
+      const nonExistentId = randomUUID();
+      await request(app)
+        .post(`/api/services/${nonExistentId}/complete`)
+        .expect(404);
+    });
+  });
+
+  describe('POST /api/services/:id/skip', () => {
+    let skipServiceId: string;
+
+    beforeEach(async () => {
+      // Create a service to skip
+      const result = await pool.query(
+        `INSERT INTO services (id, customer_id, service_type, scheduled_date, status)
+         VALUES ($1, $2, 'regular', '2026-01-25', 'scheduled')
+         RETURNING id`,
+        [randomUUID(), testCustomerId]
+      );
+      skipServiceId = result.rows[0].id;
+    });
+
+    afterEach(async () => {
+      if (skipServiceId) {
+        await pool.query('DELETE FROM services WHERE id = $1', [skipServiceId]).catch(() => {});
+      }
+    });
+
+    it('should mark service as skipped without reason', async () => {
+      const response = await request(app)
+        .post(`/api/services/${skipServiceId}/skip`)
+        .expect(200);
+
+      expect(response.body.status).toBe('skipped');
+
+      // Verify in database
+      const dbResult = await pool.query(
+        'SELECT status FROM services WHERE id = $1',
+        [skipServiceId]
+      );
+      expect(dbResult.rows[0].status).toBe('skipped');
+    });
+
+    it('should mark service as skipped with reason', async () => {
+      const reason = 'Customer requested to skip this week';
+      const response = await request(app)
+        .post(`/api/services/${skipServiceId}/skip`)
+        .send({ reason })
+        .expect(200);
+
+      expect(response.body.status).toBe('skipped');
+      expect(response.body.service_notes).toContain(reason);
+
+      // Verify in database
+      const dbResult = await pool.query(
+        'SELECT status, service_notes FROM services WHERE id = $1',
+        [skipServiceId]
+      );
+      expect(dbResult.rows[0].status).toBe('skipped');
+      expect(dbResult.rows[0].service_notes).toContain(reason);
+    });
+
+    it('should return 404 when service not found', async () => {
+      const nonExistentId = randomUUID();
+      await request(app)
+        .post(`/api/services/${nonExistentId}/skip`)
+        .expect(404);
+    });
+  });
+
+  describe('POST /api/services/:id/start', () => {
+    let startServiceId: string;
+
+    beforeEach(async () => {
+      // Create a service to start
+      const result = await pool.query(
+        `INSERT INTO services (id, customer_id, service_type, scheduled_date, status)
+         VALUES ($1, $2, 'regular', '2026-01-25', 'scheduled')
+         RETURNING id`,
+        [randomUUID(), testCustomerId]
+      );
+      startServiceId = result.rows[0].id;
+    });
+
+    afterEach(async () => {
+      if (startServiceId) {
+        await pool.query('DELETE FROM services WHERE id = $1', [startServiceId]).catch(() => {});
+      }
+    });
+
+    it('should mark service as in_progress', async () => {
+      const response = await request(app)
+        .post(`/api/services/${startServiceId}/start`)
+        .expect(200);
+
+      expect(response.body.status).toBe('in_progress');
+
+      // Verify in database
+      const dbResult = await pool.query(
+        'SELECT status FROM services WHERE id = $1',
+        [startServiceId]
+      );
+      expect(dbResult.rows[0].status).toBe('in_progress');
+    });
+
+    it('should return 404 when service not found', async () => {
+      const nonExistentId = randomUUID();
+      await request(app)
+        .post(`/api/services/${nonExistentId}/start`)
+        .expect(404);
+    });
+  });
 });

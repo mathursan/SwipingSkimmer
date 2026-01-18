@@ -180,6 +180,67 @@ export class ServiceRepository {
     return result.rowCount !== null && result.rowCount > 0;
   }
 
+  async markComplete(id: string): Promise<Service | null> {
+    const query = `
+      UPDATE services
+      SET status = 'completed',
+          completed_at = NOW(),
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `;
+    const result = await pool.query(query, [id]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return this.mapRowToService(result.rows[0]);
+  }
+
+  async markSkipped(id: string, reason?: string): Promise<Service | null> {
+    const updates: string[] = [
+      "status = 'skipped'",
+      'updated_at = NOW()',
+    ];
+    const values: any[] = [];
+    let paramCount = 1;
+
+    if (reason) {
+      updates.push(`service_notes = COALESCE(service_notes || E'\\n', '') || $${paramCount}`);
+      values.push(`Skipped: ${reason}`);
+      paramCount++;
+    }
+
+    values.push(id);
+
+    const query = `
+      UPDATE services
+      SET ${updates.join(', ')}
+      WHERE id = $${paramCount}
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, values);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return this.mapRowToService(result.rows[0]);
+  }
+
+  async markInProgress(id: string): Promise<Service | null> {
+    const query = `
+      UPDATE services
+      SET status = 'in_progress',
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `;
+    const result = await pool.query(query, [id]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return this.mapRowToService(result.rows[0]);
+  }
+
   private mapRowToService(row: any): Service {
     return {
       id: row.id,

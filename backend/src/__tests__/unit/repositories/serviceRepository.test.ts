@@ -320,4 +320,141 @@ describe('ServiceRepository', () => {
       expect(result).toBe(false);
     });
   });
+
+  describe('markComplete', () => {
+    it('should update service status to completed and set completed_at', async () => {
+      const serviceId = randomUUID();
+      const mockService = {
+        id: serviceId,
+        customer_id: 'customer-1',
+        service_type: 'regular',
+        scheduled_date: '2026-01-20',
+        status: 'completed',
+        completed_at: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      mockQuery.mockResolvedValue({ rows: [mockService] });
+
+      const result = await serviceRepo.markComplete(serviceId);
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining("UPDATE services"),
+        [serviceId]
+      );
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining("status = 'completed'"),
+        expect.any(Array)
+      );
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('completed_at = NOW()'),
+        expect.any(Array)
+      );
+      expect(result).toBeDefined();
+      expect(result?.status).toBe('completed');
+    });
+
+    it('should return null when service not found', async () => {
+      const nonExistentId = randomUUID();
+      mockQuery.mockResolvedValue({ rows: [] });
+
+      const result = await serviceRepo.markComplete(nonExistentId);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('markSkipped', () => {
+    it('should update service status to skipped', async () => {
+      const serviceId = randomUUID();
+      const mockService = {
+        id: serviceId,
+        customer_id: 'customer-1',
+        service_type: 'regular',
+        scheduled_date: '2026-01-20',
+        status: 'skipped',
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      mockQuery.mockResolvedValue({ rows: [mockService] });
+
+      const result = await serviceRepo.markSkipped(serviceId);
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining("status = 'skipped'"),
+        expect.any(Array)
+      );
+      expect(result).toBeDefined();
+      expect(result?.status).toBe('skipped');
+    });
+
+    it('should update service status to skipped with reason', async () => {
+      const serviceId = randomUUID();
+      const reason = 'Customer requested to skip';
+      const mockService = {
+        id: serviceId,
+        customer_id: 'customer-1',
+        service_type: 'regular',
+        scheduled_date: '2026-01-20',
+        status: 'skipped',
+        service_notes: `Skipped: ${reason}`,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      mockQuery.mockResolvedValue({ rows: [mockService] });
+
+      const result = await serviceRepo.markSkipped(serviceId, reason);
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining("status = 'skipped'"),
+        expect.arrayContaining([expect.stringContaining(reason)])
+      );
+      expect(result).toBeDefined();
+      expect(result?.status).toBe('skipped');
+    });
+
+    it('should return null when service not found', async () => {
+      const nonExistentId = randomUUID();
+      mockQuery.mockResolvedValue({ rows: [] });
+
+      const result = await serviceRepo.markSkipped(nonExistentId);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('markInProgress', () => {
+    it('should update service status to in_progress', async () => {
+      const serviceId = randomUUID();
+      const mockService = {
+        id: serviceId,
+        customer_id: 'customer-1',
+        service_type: 'regular',
+        scheduled_date: '2026-01-20',
+        status: 'in_progress',
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      mockQuery.mockResolvedValue({ rows: [mockService] });
+
+      const result = await serviceRepo.markInProgress(serviceId);
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining("status = 'in_progress'"),
+        [serviceId]
+      );
+      expect(result).toBeDefined();
+      expect(result?.status).toBe('in_progress');
+    });
+
+    it('should return null when service not found', async () => {
+      const nonExistentId = randomUUID();
+      mockQuery.mockResolvedValue({ rows: [] });
+
+      const result = await serviceRepo.markInProgress(nonExistentId);
+      expect(result).toBeNull();
+    });
+  });
 });
