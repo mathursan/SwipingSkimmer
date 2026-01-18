@@ -104,3 +104,33 @@ export async function deleteService(id: string): Promise<void> {
     throw new Error('Failed to delete service');
   }
 }
+
+export async function createService(data: any): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/services`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to create service' }));
+    throw new Error(error.error || 'Failed to create service');
+  }
+  return response.json();
+}
+
+export async function updateService(id: string, data: any): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/services/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to update service' }));
+    throw new Error(error.error || 'Failed to update service');
+  }
+  return response.json();
+}

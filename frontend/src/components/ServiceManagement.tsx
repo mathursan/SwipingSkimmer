@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import ServiceList from './ServiceList';
 import ServiceDetail from './ServiceDetail';
+import ServiceForm from './ServiceForm';
 import { Service, ServiceFilters } from '../types/service';
 import { fetchServices, fetchService, deleteService } from '../services/api';
 import { fetchCustomers } from '../services/api';
@@ -10,6 +11,8 @@ const ServiceManagement: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [customers, setCustomers] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const [filters, setFilters] = useState<ServiceFilters>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,9 +60,28 @@ const ServiceManagement: React.FC = () => {
     }
   };
 
+  const handleCreate = () => {
+    setEditingService(null);
+    setSelectedService(null);
+    setShowForm(true);
+  };
+
   const handleEdit = (service: Service) => {
-    // TODO: Implement edit functionality in Issue #7
-    console.log('Edit service:', service);
+    setEditingService(service);
+    setSelectedService(null);
+    setShowForm(true);
+  };
+
+  const handleFormSuccess = () => {
+    setShowForm(false);
+    setEditingService(null);
+    setSelectedService(null);
+    loadServices(); // Reload services list
+  };
+
+  const handleFormCancel = () => {
+    setShowForm(false);
+    setEditingService(null);
   };
 
   const handleDelete = async (id: string) => {
@@ -105,7 +127,14 @@ const ServiceManagement: React.FC = () => {
 
   return (
     <div className="service-management">
-      {selectedService ? (
+      {showForm ? (
+        <ServiceForm
+          service={editingService}
+          customers={customers}
+          onSuccess={handleFormSuccess}
+          onCancel={handleFormCancel}
+        />
+      ) : selectedService ? (
         <ServiceDetail
           service={selectedService}
           customerName={getCustomerName(selectedService.customer_id)}
@@ -121,6 +150,7 @@ const ServiceManagement: React.FC = () => {
           onSelect={handleSelectService}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onCreate={handleCreate}
           onFilter={handleFilter}
           filters={filters}
           customers={customers}
