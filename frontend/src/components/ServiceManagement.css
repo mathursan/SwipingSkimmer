@@ -1,0 +1,12 @@
+.service-management {
+  width: 100%;
+  padding: 20px;
+}
+
+.error-message {
+  background-color: #fee;
+  color: #c33;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}

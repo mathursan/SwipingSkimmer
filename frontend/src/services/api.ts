@@ -67,3 +67,40 @@ export async function fetchCustomerHistory(id: string): Promise<any[]> {
   }
   return response.json();
 }
+
+// Service API functions
+export async function fetchServices(filters?: {
+  customer_id?: string;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+}): Promise<any[]> {
+  const params = new URLSearchParams();
+  if (filters?.customer_id) params.append('customer_id', filters.customer_id);
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.start_date) params.append('start_date', filters.start_date);
+  if (filters?.end_date) params.append('end_date', filters.end_date);
+
+  const response = await fetch(`${API_BASE_URL}/services?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch services');
+  }
+  return response.json();
+}
+
+export async function fetchService(id: string): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/services/${id}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch service');
+  }
+  return response.json();
+}
+
+export async function deleteService(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/services/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to delete service');
+  }
+}
