@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import customerRoutes from './routes/customerRoutes';
 import serviceRoutes from './routes/serviceRoutes';
+import recurringServiceRoutes from './routes/recurringServiceRoutes';
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/customers', customerRoutes);
 app.use('/api/services', serviceRoutes);
+app.use('/api/recurring-services', recurringServiceRoutes);
 
 const PORT = process.env.PORT || 3001;
 
