@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import customerRoutes from './routes/customerRoutes';
+import serviceRoutes from './routes/serviceRoutes';
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/customers', customerRoutes);
+app.use('/api/services', serviceRoutes);
 
 const PORT = process.env.PORT || 3001;
 

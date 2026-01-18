@@ -1,0 +1,392 @@
+import request from 'supertest';
+import app from '../../app';
+import { pool } from '../../config/database';
+import { randomUUID } from 'crypto';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+describe('Service API Integration Tests', () => {
+  let testCustomerId: string;
+  let testServiceId: string;
+
+  beforeAll(async () => {
+    // Run services migration if table doesn't exist
+    try {
+      await pool.query('SELECT 1 FROM services LIMIT 1');
+    } catch (error) {
+      // Table doesn't exist, run migration
+      const migrationFile = readFileSync(
+        join(__dirname, '../../db/migrations/002_create_services_table.sql'),
+        'utf-8'
+      );
+      await pool.query(migrationFile);
+    }
+
+    // Create a test customer for services
+    const customerResult = await pool.query(
+      `INSERT INTO customers (id, name, address)
+       VALUES ($1, $2, $3)
+       RETURNING id`,
+      [randomUUID(), 'Test Customer for Services', '123 Test St']
+    );
+    testCustomerId = customerResult.rows[0].id;
+  });
+
+  afterAll(async () => {
+    // Clean up test data
+    if (testServiceId) {
+      await pool.query('DELETE FROM services WHERE id = $1', [testServiceId]).catch(() => {});
+    }
+    if (testCustomerId) {
+      await pool.query('DELETE FROM customers WHERE id = $1', [testCustomerId]).catch(() => {});
+    }
+    // Don't close pool here - it's shared with other tests
+  });
+
+  describe('GET /api/services', () => {
+    it('should return list of services', async () => {
+      const response = await request(app)
+        .get('/api/services')
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+    });
+
+    it('should filter services by customer_id', async () => {
+      // First create a service for the test customer
+      const serviceResult = await pool.query(
+        `INSERT INTO services (id, customer_id, service_type, scheduled_date)
+         VALUES ($1, $2, 'regular', '2026-01-20')
+         RETURNING id`,
+        [randomUUID(), testCustomerId]
+      );
+      const serviceId = serviceResult.rows[0].id;
+
+      const response = await request(app)
+        .get('/api/services')
+        .query({ customer_id: testCustomerId })
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+      response.body.forEach((service: any) => {
+        expect(service.customer_id).toBe(testCustomerId);
+      });
+
+      // Clean up
+      await pool.query('DELETE FROM services WHERE id = $1', [serviceId]);
+    });
+
+    it('should filter services by status', async () => {
+      const response = await request(app)
+        .get('/api/services')
+        .query({ status: 'scheduled' })
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+      response.body.forEach((service: any) => {
+        expect(service.status).toBe('scheduled');
+      });
+    });
+
+    it('should filter services by date range', async () => {
+      const response = await request(app)
+        .get('/api/services')
+        .query({
+          start_date: '2026-01-01',
+          end_date: '2026-01-31',
+        })
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+      response.body.forEach((service: any) => {
+        const serviceDate = new Date(service.scheduled_date);
+        expect(serviceDate >= new Date('2026-01-01')).toBe(true);
+        expect(serviceDate <= new Date('2026-01-31')).toBe(true);
+      });
+    });
+
+    it('should support pagination', async () => {
+      const response = await request(app)
+        .get('/api/services')
+        .query({ limit: 5, offset: 0 })
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body.length).toBeLessThanOrEqual(5);
+    });
+
+    it('should combine multiple filters', async () => {
+      const response = await request(app)
+        .get('/api/services')
+        .query({
+          customer_id: testCustomerId,
+          status: 'scheduled',
+          start_date: '2026-01-01',
+        })
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+    });
+  });
+
+  describe('POST /api/services', () => {
+    it('should create a new service', async () => {
+      const serviceData = {
+        customer_id: testCustomerId,
+        service_type: 'regular',
+        scheduled_date: '2026-01-25',
+        scheduled_time: '10:00:00',
+        service_notes: 'Test service notes',
+      };
+
+      const response = await request(app)
+        .post('/api/services')
+        .send(serviceData)
+        .expect(201);
+
+      expect(response.body).toHaveProperty('id');
+      expect(response.body.customer_id).toBe(serviceData.customer_id);
+      expect(response.body.service_type).toBe(serviceData.service_type);
+      // scheduled_date may be returned as ISO string or Date, so check it matches
+      const responseDate = new Date(response.body.scheduled_date).toISOString().split('T')[0];
+      expect(responseDate).toBe(serviceData.scheduled_date);
+      expect(response.body.status).toBe('scheduled'); // default
+      expect(response.body.service_notes).toBe(serviceData.service_notes);
+
+      testServiceId = response.body.id;
+    });
+
+    it('should create service with default status', async () => {
+      const serviceData = {
+        customer_id: testCustomerId,
+        service_type: 'repair',
+        scheduled_date: '2026-01-26',
+      };
+
+      const response = await request(app)
+        .post('/api/services')
+        .send(serviceData)
+        .expect(201);
+
+      expect(response.body.status).toBe('scheduled');
+
+      // Clean up
+      await pool.query('DELETE FROM services WHERE id = $1', [response.body.id]);
+    });
+
+    it('should create service with specified status', async () => {
+      const serviceData = {
+        customer_id: testCustomerId,
+        service_type: 'one_off',
+        scheduled_date: '2026-01-27',
+        status: 'in_progress',
+      };
+
+      const response = await request(app)
+        .post('/api/services')
+        .send(serviceData)
+        .expect(201);
+
+      expect(response.body.status).toBe('in_progress');
+
+      // Clean up
+      await pool.query('DELETE FROM services WHERE id = $1', [response.body.id]);
+    });
+
+    it('should reject service with missing required fields', async () => {
+      const response = await request(app)
+        .post('/api/services')
+        .send({
+          service_type: 'regular',
+          // missing customer_id and scheduled_date
+        })
+        .expect(400);
+
+      expect(response.body.error).toContain('required');
+    });
+
+    it('should reject service with invalid customer_id', async () => {
+      const response = await request(app)
+        .post('/api/services')
+        .send({
+          customer_id: randomUUID(), // non-existent customer
+          service_type: 'regular',
+          scheduled_date: '2026-01-25',
+        })
+        .expect(400);
+
+      expect(response.body.error).toContain('Invalid customer_id');
+    });
+
+    it('should reject service with invalid service_type', async () => {
+      const response = await request(app)
+        .post('/api/services')
+        .send({
+          customer_id: testCustomerId,
+          service_type: 'invalid_type',
+          scheduled_date: '2026-01-25',
+        })
+        .expect(400);
+
+      expect(response.body.error).toContain('service_type');
+    });
+
+    it('should reject service with invalid status', async () => {
+      const response = await request(app)
+        .post('/api/services')
+        .send({
+          customer_id: testCustomerId,
+          service_type: 'regular',
+          scheduled_date: '2026-01-25',
+          status: 'invalid_status',
+        })
+        .expect(400);
+
+      expect(response.body.error).toContain('status');
+    });
+  });
+
+  describe('GET /api/services/:id', () => {
+    it('should return service by id', async () => {
+      if (!testServiceId) {
+        // Create a service if one doesn't exist
+        const result = await pool.query(
+          `INSERT INTO services (id, customer_id, service_type, scheduled_date)
+           VALUES ($1, $2, 'regular', '2026-01-25')
+           RETURNING id`,
+          [randomUUID(), testCustomerId]
+        );
+        testServiceId = result.rows[0].id;
+      }
+
+      const response = await request(app)
+        .get(`/api/services/${testServiceId}`)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('id');
+      expect(response.body.id).toBe(testServiceId);
+      expect(response.body.customer_id).toBe(testCustomerId);
+    });
+
+    it('should return 404 for non-existent service', async () => {
+      const nonExistentId = randomUUID();
+      const response = await request(app)
+        .get(`/api/services/${nonExistentId}`)
+        .expect(404);
+
+      expect(response.body.error).toBe('Service not found');
+    });
+  });
+
+  describe('PUT /api/services/:id', () => {
+    it('should update service', async () => {
+      // Create a service to update
+      const result = await pool.query(
+        `INSERT INTO services (id, customer_id, service_type, scheduled_date)
+         VALUES ($1, $2, 'regular', '2026-01-25')
+         RETURNING id`,
+        [randomUUID(), testCustomerId]
+      );
+      const serviceId = result.rows[0].id;
+
+      const updateData = {
+        status: 'completed',
+        service_notes: 'Updated notes',
+        completed_at: new Date().toISOString(),
+      };
+
+      const response = await request(app)
+        .put(`/api/services/${serviceId}`)
+        .send(updateData)
+        .expect(200);
+
+      expect(response.body.status).toBe('completed');
+      expect(response.body.service_notes).toBe('Updated notes');
+      expect(response.body.completed_at).toBeDefined();
+
+      // Clean up
+      await pool.query('DELETE FROM services WHERE id = $1', [serviceId]);
+    });
+
+    it('should return 404 for non-existent service', async () => {
+      const nonExistentId = randomUUID();
+      const response = await request(app)
+        .put(`/api/services/${nonExistentId}`)
+        .send({ status: 'completed' })
+        .expect(404);
+
+      expect(response.body.error).toBe('Service not found');
+    });
+
+    it('should reject invalid service_type', async () => {
+      if (!testServiceId) {
+        const result = await pool.query(
+          `INSERT INTO services (id, customer_id, service_type, scheduled_date)
+           VALUES ($1, $2, 'regular', '2026-01-25')
+           RETURNING id`,
+          [randomUUID(), testCustomerId]
+        );
+        testServiceId = result.rows[0].id;
+      }
+
+      const response = await request(app)
+        .put(`/api/services/${testServiceId}`)
+        .send({ service_type: 'invalid_type' })
+        .expect(400);
+
+      expect(response.body.error).toContain('service_type');
+    });
+
+    it('should reject invalid status', async () => {
+      if (!testServiceId) {
+        const result = await pool.query(
+          `INSERT INTO services (id, customer_id, service_type, scheduled_date)
+           VALUES ($1, $2, 'regular', '2026-01-25')
+           RETURNING id`,
+          [randomUUID(), testCustomerId]
+        );
+        testServiceId = result.rows[0].id;
+      }
+
+      const response = await request(app)
+        .put(`/api/services/${testServiceId}`)
+        .send({ status: 'invalid_status' })
+        .expect(400);
+
+      expect(response.body.error).toContain('status');
+    });
+  });
+
+  describe('DELETE /api/services/:id', () => {
+    it('should delete service', async () => {
+      // Create a service to delete
+      const result = await pool.query(
+        `INSERT INTO services (id, customer_id, service_type, scheduled_date)
+         VALUES ($1, $2, 'regular', '2026-01-25')
+         RETURNING id`,
+        [randomUUID(), testCustomerId]
+      );
+      const serviceId = result.rows[0].id;
+
+      await request(app)
+        .delete(`/api/services/${serviceId}`)
+        .expect(204);
+
+      // Verify it's deleted
+      const checkResult = await pool.query(
+        'SELECT * FROM services WHERE id = $1',
+        [serviceId]
+      );
+      expect(checkResult.rows.length).toBe(0);
+    });
+
+    it('should return 404 for non-existent service', async () => {
+      const nonExistentId = randomUUID();
+      const response = await request(app)
+        .delete(`/api/services/${nonExistentId}`)
+        .expect(404);
+
+      expect(response.body.error).toBe('Service not found');
+    });
+  });
+});
