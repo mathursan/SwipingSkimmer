@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import CustomerList from './CustomerList';
 import CustomerDetail from './CustomerDetail';
 import CustomerForm from './CustomerForm';
@@ -15,11 +15,7 @@ const CustomerManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadCustomers();
-  }, [filters]);
-
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -30,14 +26,19 @@ const CustomerManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
+
+  useEffect(() => {
+    loadCustomers();
+  }, [loadCustomers]);
+
 
   const handleSearch = (searchTerm: string) => {
-    setFilters({ ...filters, search: searchTerm });
+    setFilters((prevFilters) => ({ ...prevFilters, search: searchTerm || undefined }));
   };
 
   const handleFilter = (newFilters: CustomerFilters) => {
-    setFilters({ ...filters, ...newFilters });
+    setFilters((prevFilters) => ({ ...prevFilters, ...newFilters }));
   };
 
   const handleSelectCustomer = (customer: Customer) => {

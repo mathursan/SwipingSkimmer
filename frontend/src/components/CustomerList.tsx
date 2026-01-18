@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Customer, CustomerFilters } from '../types/customer';
 import './CustomerList.css';
 
@@ -24,6 +24,11 @@ const CustomerList: React.FC<CustomerListProps> = ({
   filters,
 }) => {
   const [searchTerm, setSearchTerm] = useState(filters.search || '');
+
+  // Sync local searchTerm with filters from parent
+  useEffect(() => {
+    setSearchTerm(filters.search || '');
+  }, [filters.search]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
