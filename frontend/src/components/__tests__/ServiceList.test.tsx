@@ -37,12 +37,15 @@ describe('ServiceList', () => {
   const mockOnDelete = vi.fn();
   const mockOnFilter = vi.fn();
 
+  const mockOnCreate = vi.fn();
+
   const defaultProps = {
     services: mockServices,
     loading: false,
     onSelect: mockOnSelect,
     onEdit: mockOnEdit,
     onDelete: mockOnDelete,
+    onCreate: mockOnCreate,
     onFilter: mockOnFilter,
     filters: {},
     customers: mockCustomers,
@@ -135,5 +138,20 @@ describe('ServiceList', () => {
     
     expect(screen.getByText('scheduled')).toBeInTheDocument();
     expect(screen.getByText('completed')).toBeInTheDocument();
+  });
+
+  it('should render create button', () => {
+    render(<ServiceList {...defaultProps} />);
+    
+    expect(screen.getByText('+ Create New Service')).toBeInTheDocument();
+  });
+
+  it('should call onCreate when create button is clicked', () => {
+    render(<ServiceList {...defaultProps} />);
+    
+    const createButton = screen.getByText('+ Create New Service');
+    createButton.click();
+    
+    expect(mockOnCreate).toHaveBeenCalled();
   });
 });

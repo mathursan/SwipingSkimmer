@@ -2,6 +2,12 @@
   width: 100%;
 }
 
+.service-list-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
 .service-list-filters {
   display: flex;
   gap: 20px;

@@ -8,6 +8,7 @@ interface ServiceListProps {
   onSelect: (service: Service) => void;
   onEdit: (service: Service) => void;
   onDelete: (id: string) => void;
+  onCreate: () => void;
   onFilter: (filters: ServiceFilters) => void;
   filters: ServiceFilters;
   customers: Array<{ id: string; name: string }>; // For customer filter dropdown
@@ -19,6 +20,7 @@ const ServiceList: React.FC<ServiceListProps> = ({
   onSelect,
   onEdit,
   onDelete,
+  onCreate,
   onFilter,
   filters,
   customers,
@@ -72,6 +74,11 @@ const ServiceList: React.FC<ServiceListProps> = ({
 
   return (
     <div className="service-list">
+      <div className="service-list-header">
+        <button onClick={onCreate} className="btn btn-primary">
+          + Create New Service
+        </button>
+      </div>
       <div className="service-list-filters">
         <div className="filter-box">
           <label htmlFor="status-filter">Status:</label>
