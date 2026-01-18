@@ -1,0 +1,106 @@
+.service-list {
+  width: 100%;
+}
+
+.service-list-filters {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.filter-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-box label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.filter-select,
+.filter-input {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.filter-input {
+  min-width: 150px;
+}
+
+.loading,
+.no-services {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.service-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.service-table thead {
+  background-color: #f8f9fa;
+}
+
+.service-table th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.service-table td {
+  padding: 12px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.service-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.service-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.status-scheduled {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.status-in-progress {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.status-completed {
+  background-color: #e8f5e9;
+  color: #388e3c;
+}
+
+.status-skipped {
+  background-color: #fce4ec;
+  color: #c2185b;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  margin-right: 5px;
+}
