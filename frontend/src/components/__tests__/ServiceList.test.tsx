@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import ServiceList from '../ServiceList';
 import { Service } from '../../types/service';
 
@@ -153,5 +154,54 @@ describe('ServiceList', () => {
     createButton.click();
     
     expect(mockOnCreate).toHaveBeenCalled();
+  });
+
+  it('should handle filter changes correctly', async () => {
+    const user = userEvent.setup();
+    render(<ServiceList {...defaultProps} />);
+
+    const statusFilter = screen.getByLabelText('Status:');
+    await user.selectOptions(statusFilter, 'completed');
+
+    expect(mockOnFilter).toHaveBeenCalledWith({ status: 'completed' });
+  });
+
+  it('should handle date filter changes', async () => {
+    const user = userEvent.setup();
+    render(<ServiceList {...defaultProps} />);
+
+    const startDateInput = screen.getByLabelText('Start Date:');
+    await user.type(startDateInput, '2026-01-20');
+
+    expect(mockOnFilter).toHaveBeenCalledWith({ start_date: '2026-01-20' });
+  });
+
+  it('should display services with all status types', () => {
+    const servicesWithAllStatuses = [
+      { ...mockServices[0], id: '1', status: 'scheduled' },
+      { ...mockServices[0], id: '2', customer_id: 'customer-1', status: 'in_progress' },
+      { ...mockServices[1], id: '3', status: 'completed' },
+      { ...mockServices[0], id: '4', customer_id: 'customer-1', status: 'skipped' },
+    ];
+
+    render(<ServiceList {...defaultProps} services={servicesWithAllStatuses} />);
+
+    // Check that status badges are rendered (they might be in spans with classes)
+    const statusElements = screen.getAllByText(/scheduled|in_progress|completed|skipped/i);
+    expect(statusElements.length).toBeGreaterThan(0);
+  });
+
+  it('should handle services without scheduled_time', () => {
+    const serviceWithoutTime = {
+      ...mockServices[0],
+      scheduled_time: undefined,
+    };
+
+    render(<ServiceList {...defaultProps} services={[serviceWithoutTime]} />);
+
+    // The time column should show empty or dash
+    const timeCells = screen.getAllByRole('cell');
+    const timeCell = timeCells.find(cell => cell.textContent === '' || cell.textContent === '-');
+    expect(timeCell).toBeDefined();
   });
 });

@@ -247,4 +247,68 @@ describe('ServiceForm', () => {
       expect(screen.getByText('Saving...')).toBeDisabled();
     });
   });
+
+  describe('Edge Cases', () => {
+    it('should handle form reset after successful submission', async () => {
+      const user = userEvent.setup();
+      (api.createService as any).mockResolvedValueOnce({ id: 'new-service' });
+      
+      render(<ServiceForm {...defaultProps} />);
+
+      await user.selectOptions(screen.getByLabelText(/customer/i), 'customer-1');
+      await user.selectOptions(screen.getByLabelText(/service type/i), 'regular');
+      await user.type(screen.getByLabelText(/scheduled date/i), '2026-01-25');
+      await user.selectOptions(screen.getByLabelText(/status/i), 'scheduled');
+
+      const submitButton = screen.getByText('Create Service');
+      await user.click(submitButton);
+
+      await waitFor(() => {
+        expect(mockOnSuccess).toHaveBeenCalled();
+      });
+    });
+
+    it('should handle very long service notes', async () => {
+      const user = userEvent.setup();
+      const longNotes = 'A'.repeat(5000);
+      (api.createService as any).mockResolvedValueOnce({ id: 'new-service' });
+      
+      render(<ServiceForm {...defaultProps} />);
+
+      await user.selectOptions(screen.getByLabelText(/customer/i), 'customer-1');
+      await user.selectOptions(screen.getByLabelText(/service type/i), 'regular');
+      await user.type(screen.getByLabelText(/scheduled date/i), '2026-01-25');
+      await user.type(screen.getByLabelText(/service notes/i), longNotes);
+      await user.selectOptions(screen.getByLabelText(/status/i), 'scheduled');
+
+      const submitButton = screen.getByText('Create Service');
+      await user.click(submitButton);
+
+      await waitFor(() => {
+        expect(api.createService).toHaveBeenCalledWith(
+          expect.objectContaining({ service_notes: longNotes })
+        );
+      });
+    });
+
+    it('should clear errors when user starts typing', async () => {
+      const user = userEvent.setup();
+      render(<ServiceForm {...defaultProps} />);
+
+      // Submit without required fields to trigger errors
+      const submitButton = screen.getByText('Create Service');
+      await user.click(submitButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Customer is required')).toBeInTheDocument();
+      });
+
+      // Start typing in customer field
+      await user.selectOptions(screen.getByLabelText(/customer/i), 'customer-1');
+
+      await waitFor(() => {
+        expect(screen.queryByText('Customer is required')).not.toBeInTheDocument();
+      });
+    });
+  });
 });

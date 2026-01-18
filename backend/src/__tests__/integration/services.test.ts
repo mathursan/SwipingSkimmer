@@ -540,4 +540,149 @@ describe('Service API Integration Tests', () => {
         .expect(404);
     });
   });
+
+  describe('Edge Cases and Error Handling', () => {
+    it('should handle invalid limit parameter gracefully', async () => {
+      const response = await request(app)
+        .get('/api/services')
+        .query({ limit: 'invalid' })
+        .expect(200); // Should still work, just ignore invalid limit
+
+      expect(Array.isArray(response.body)).toBe(true);
+    });
+
+    it('should handle invalid offset parameter gracefully', async () => {
+      const response = await request(app)
+        .get('/api/services')
+        .query({ offset: 'invalid' })
+        .expect(200); // Should still work, just ignore invalid offset
+
+      expect(Array.isArray(response.body)).toBe(true);
+    });
+
+    it('should handle negative limit parameter', async () => {
+      const response = await request(app)
+        .get('/api/services')
+        .query({ limit: -5 })
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+    });
+
+    it('should handle negative offset parameter', async () => {
+      const response = await request(app)
+        .get('/api/services')
+        .query({ offset: -10 })
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+    });
+
+    it('should handle empty string in customer_id filter', async () => {
+      const response = await request(app)
+        .get('/api/services')
+        .query({ customer_id: '' })
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+    });
+
+    it('should handle invalid date format in start_date', async () => {
+      const response = await request(app)
+        .get('/api/services')
+        .query({ start_date: 'invalid-date' })
+        .expect(200); // Database will handle invalid date
+
+      expect(Array.isArray(response.body)).toBe(true);
+    });
+
+    it('should handle invalid date format in end_date', async () => {
+      const response = await request(app)
+        .get('/api/services')
+        .query({ end_date: 'invalid-date' })
+        .expect(200); // Database will handle invalid date
+
+      expect(Array.isArray(response.body)).toBe(true);
+    });
+
+    it('should handle update with empty body', async () => {
+      if (!testServiceId) {
+        const result = await pool.query(
+          `INSERT INTO services (id, customer_id, service_type, scheduled_date)
+           VALUES ($1, $2, 'regular', '2026-01-25')
+           RETURNING id`,
+          [randomUUID(), testCustomerId]
+        );
+        testServiceId = result.rows[0].id;
+      }
+
+      const response = await request(app)
+        .put(`/api/services/${testServiceId}`)
+        .send({})
+        .expect(200); // Should return existing service
+
+      expect(response.body).toHaveProperty('id');
+      expect(response.body.id).toBe(testServiceId);
+    });
+
+    it('should handle update with invalid customer_id during update', async () => {
+      if (!testServiceId) {
+        const result = await pool.query(
+          `INSERT INTO services (id, customer_id, service_type, scheduled_date)
+           VALUES ($1, $2, 'regular', '2026-01-25')
+           RETURNING id`,
+          [randomUUID(), testCustomerId]
+        );
+        testServiceId = result.rows[0].id;
+      }
+
+      const invalidCustomerId = randomUUID();
+      const response = await request(app)
+        .put(`/api/services/${testServiceId}`)
+        .send({ customer_id: invalidCustomerId })
+        .expect(400);
+
+      expect(response.body.error).toContain('Invalid customer_id');
+    });
+
+    it('should handle very long service_notes', async () => {
+      const longNotes = 'A'.repeat(10000);
+      const serviceData = {
+        customer_id: testCustomerId,
+        service_type: 'regular',
+        scheduled_date: '2026-01-25',
+        service_notes: longNotes,
+      };
+
+      const response = await request(app)
+        .post('/api/services')
+        .send(serviceData)
+        .expect(201);
+
+      expect(response.body.service_notes).toBe(longNotes);
+
+      // Clean up
+      await pool.query('DELETE FROM services WHERE id = $1', [response.body.id]);
+    });
+
+    it('should handle special characters in service_notes', async () => {
+      const specialNotes = 'Test notes with special chars: <>&"\'`\n\t';
+      const serviceData = {
+        customer_id: testCustomerId,
+        service_type: 'regular',
+        scheduled_date: '2026-01-25',
+        service_notes: specialNotes,
+      };
+
+      const response = await request(app)
+        .post('/api/services')
+        .send(serviceData)
+        .expect(201);
+
+      expect(response.body.service_notes).toBe(specialNotes);
+
+      // Clean up
+      await pool.query('DELETE FROM services WHERE id = $1', [response.body.id]);
+    });
+  });
 });
