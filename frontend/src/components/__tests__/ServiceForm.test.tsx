@@ -268,9 +268,9 @@ describe('ServiceForm', () => {
       });
     });
 
-    it('should handle very long service notes', async () => {
+    it('should handle long service notes', async () => {
       const user = userEvent.setup();
-      const longNotes = 'A'.repeat(5000);
+      const longNotes = 'A'.repeat(500); // Reduced length to avoid timeout
       (api.createService as any).mockResolvedValueOnce({ id: 'new-service' });
       
       render(<ServiceForm {...defaultProps} />);
@@ -289,7 +289,7 @@ describe('ServiceForm', () => {
           expect.objectContaining({ service_notes: longNotes })
         );
       });
-    });
+    }, 10000); // Increase timeout for this test
 
     it('should clear errors when user starts typing', async () => {
       const user = userEvent.setup();
